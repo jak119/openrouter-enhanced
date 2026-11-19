@@ -118,17 +118,21 @@ class TestAITaskEntity(unittest.IsolatedAsyncioTestCase):
         for text, error in (("```json\nnot JSON\n```", "invalid structured data"), ("", "no data"), ("private text", "invalid structured data")):
             with self.subTest(text=text):
                 self.entity._async_chat.return_value = {"choices": [{"message": {"content": text}}]}
-                with self.assertLogs(self.platform._LOGGER, level="ERROR") as logs:
-                    with self.assertRaisesRegex(self.error, error):
-                        await self.entity._async_generate_data(self.task, self.chat_log)
+                with (
+                    self.assertLogs(self.platform._LOGGER, level="ERROR") as logs,
+                    self.assertRaisesRegex(self.error, error),
+                ):
+                    await self.entity._async_generate_data(self.task, self.chat_log)
                 self.assertIn(error, logs.output[0])
                 self.assertNotIn("private text", logs.output[0])
 
     async def test_api_failure_is_logged_without_response_details(self):
         self.entity._async_chat.side_effect = self.api_error("private provider details", 429)
-        with self.assertLogs(self.platform._LOGGER, level="ERROR") as logs:
-            with self.assertRaisesRegex(self.error, "request failed"):
-                await self.entity._async_generate_data(self.task, self.chat_log)
+        with (
+            self.assertLogs(self.platform._LOGGER, level="ERROR") as logs,
+            self.assertRaisesRegex(self.error, "request failed"),
+        ):
+            await self.entity._async_generate_data(self.task, self.chat_log)
         self.assertIn("429", logs.output[0])
         self.assertNotIn("private provider details", logs.output[0])
 
