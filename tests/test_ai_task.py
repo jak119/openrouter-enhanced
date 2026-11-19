@@ -80,7 +80,21 @@ class TestAITaskEntity(unittest.IsolatedAsyncioTestCase):
                 extra = self.entity._async_build_payload.call_args.kwargs
                 self.assertEqual(extra["response_format"]["json_schema"]["schema"], self.schema)
                 self.assertTrue(extra["provider"]["require_parameters"])
+                self.assertIn({"id": "response-healing"}, self.entity._async_chat.call_args.args[0]["plugins"])
                 self.assertIn("only JSON", self.entity._async_chat.call_args.args[0]["messages"][0]["content"])
+
+    async def test_response_healing_preserves_router_plugin(self):
+        plugins = [{"id": "auto-router"}]
+        self.entity._async_build_payload.return_value = {
+            "messages": [{"role": "user", "content": "instructions"}],
+            "plugins": plugins.copy(),
+        }
+        self.entity._async_chat.return_value = {"choices": [{"message": {"content": '{"name":"Lights"}'}}]}
+        await self.entity._async_generate_data(self.task, self.chat_log)
+        self.assertEqual(
+            self.entity._async_chat.call_args.args[0]["plugins"],
+            [{"id": "auto-router"}, {"id": "response-healing"}],
+        )
 
     async def test_structured_instruction_extends_existing_system_message(self):
         messages = [{"role": "system", "content": "System prompt"}, {"role": "user", "content": "instructions"}]
@@ -97,6 +111,7 @@ class TestAITaskEntity(unittest.IsolatedAsyncioTestCase):
         result = await self.entity._async_generate_data(self.task, self.chat_log)
         self.assertEqual(result.data, "```json\nnot JSON\n```")
         self.assertEqual(self.entity._async_build_payload.call_args.kwargs, {})
+        self.assertNotIn("plugins", self.entity._async_chat.call_args.args[0])
         self.assertEqual(len(self.entity._async_chat.call_args.args[0]["messages"]), 1)
 
     async def test_invalid_json_and_empty_response_are_logged(self):

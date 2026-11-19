@@ -57,6 +57,7 @@ class OpenRouterAITaskEntity(OpenRouterLLMEntity, ai_task.AITaskEntity):
             }
         payload = await self._async_build_payload(chat_log, **extra)
         if task.structure is not None:
+            payload.setdefault("plugins", []).append({"id": "response-healing"})
             instruction = "Respond with only JSON matching the requested schema, without Markdown."
             messages = payload["messages"]
             if messages and messages[0].get("role") == "system" and isinstance(messages[0].get("content"), str):
